@@ -331,37 +331,8 @@
       <span>Contenido audiovisual</span>
       <h3>Nuestros videos de aventura</h3>
     </div>
-    <div class="video-grid">
-      <div class="video-card">
-        <div class="video-thumb" onclick="openVideo('VIDEO_ID_1')">
-          <img src="https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=600&q=80" alt="Video ascenso al volcán">
-          <div class="play-btn"></div>
-        </div>
-        <div class="video-info">
-          <h4>Ascenso al volcán Chimborazo</h4>
-          <p>Vive la ruta más alta del Ecuador junto a nuestros guías expertos.</p>
-        </div>
-      </div>
-      <div class="video-card">
-        <div class="video-thumb" onclick="openVideo('VIDEO_ID_2')">
-          <img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&q=80" alt="Video senderismo bosque">
-          <div class="play-btn"></div>
-        </div>
-        <div class="video-info">
-          <h4>Senderismo entre bosques nublados</h4>
-          <p>Recorridos guiados por paisajes verdes y cascadas escondidas.</p>
-        </div>
-      </div>
-      <div class="video-card">
-        <div class="video-thumb" onclick="openVideo('VIDEO_ID_3')">
-          <img src="https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=600&q=80" alt="Video atardecer montaña">
-          <div class="play-btn"></div>
-        </div>
-        <div class="video-info">
-          <h4>Atardeceres inolvidables</h4>
-          <p>Momentos de conexión y relax al final de cada expedición.</p>
-        </div>
-      </div>
+    <div class="video-grid" id="videoGrid">
+      <p class="empty-msg">Cargando videos...</p>
     </div>
   </div>
 </section>
@@ -469,6 +440,31 @@
           <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="saveTour()">Guardar tour</button>
         </div>
         <div class="admin-list" id="adminList">
+        </div>
+      </div>
+
+      <div class="panel-top" style="margin-top:50px;">
+        <h4>Gestión de contenido audiovisual</h4>
+      </div>
+      <div class="admin-grid">
+        <div class="admin-form">
+          <h5 id="videoFormTitle">Nuevo video</h5>
+          <input type="hidden" id="videoEditId">
+          <div class="form-group">
+            <label>Título del video</label>
+            <input type="text" id="videoTitulo" placeholder="Ej: Ascenso al volcán Chimborazo">
+          </div>
+          <div class="form-group">
+            <label>Descripción</label>
+            <textarea id="videoDescripcion" rows="3" placeholder="Breve descripción del video"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Enlace de YouTube</label>
+            <input type="text" id="videoYoutube" placeholder="Ej: https://youtu.be/dQw4w9WgXcQ">
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="saveVideo()">Guardar video</button>
+        </div>
+        <div class="admin-list" id="adminVideoList">
         </div>
       </div>
     </div>
@@ -645,6 +641,7 @@
     loginBox.style.display = 'none';
     adminPanel.classList.add('active');
     renderAdminTours();
+    renderAdminVideos();
   }
 
   window.addEventListener('DOMContentLoaded', async () => {
@@ -655,6 +652,7 @@
       showAdminPanel();
     }
     loadPublicTours();
+    loadPublicVideos();
   });
 
   // GESTIÓN DE TOURS EN SUPABASE
@@ -802,6 +800,118 @@
         </div>
       `;
     }).join('');
+  }
+
+  // GESTIÓN DE VIDEOS EN SUPABASE
+  async function getVideos(){
+    const { data, error } = await sb.from('videos').select('*').order('created_at', { ascending: false });
+    if(error){
+      console.error(error);
+      return [];
+    }
+    return data;
+  }
+
+  async function saveVideo(){
+    const id = document.getElementById('videoEditId').value;
+    const titulo = document.getElementById('videoTitulo').value.trim();
+    const descripcion = document.getElementById('videoDescripcion').value.trim();
+    const youtubeId = extractYoutubeId(document.getElementById('videoYoutube').value.trim());
+
+    if(!titulo || !youtubeId){
+      alert('Por favor completa el título y el enlace de YouTube.');
+      return;
+    }
+
+    const payload = { titulo, descripcion, youtube_id: youtubeId };
+    let error;
+    if(id){
+      ({ error } = await sb.from('videos').update(payload).eq('id', id));
+    } else {
+      ({ error } = await sb.from('videos').insert(payload));
+    }
+    if(error){
+      alert('Error al guardar el video: ' + error.message);
+      return;
+    }
+    clearVideoForm();
+    await renderAdminVideos();
+    await loadPublicVideos();
+  }
+
+  function clearVideoForm(){
+    document.getElementById('videoEditId').value = '';
+    document.getElementById('videoTitulo').value = '';
+    document.getElementById('videoDescripcion').value = '';
+    document.getElementById('videoYoutube').value = '';
+    document.getElementById('videoFormTitle').textContent = 'Nuevo video';
+  }
+
+  async function editVideo(id){
+    const videos = await getVideos();
+    const video = videos.find(v => v.id === id);
+    if(!video) return;
+    document.getElementById('videoEditId').value = video.id;
+    document.getElementById('videoTitulo').value = video.titulo;
+    document.getElementById('videoDescripcion').value = video.descripcion || '';
+    document.getElementById('videoYoutube').value = video.youtube_id;
+    document.getElementById('videoFormTitle').textContent = 'Editar video';
+    window.scrollTo({top: document.getElementById('panel').offsetTop - 100, behavior:'smooth'});
+  }
+
+  async function deleteVideo(id){
+    if(!confirm('¿Eliminar este video?')) return;
+    const { error } = await sb.from('videos').delete().eq('id', id);
+    if(error){
+      alert('Error al eliminar: ' + error.message);
+      return;
+    }
+    await renderAdminVideos();
+    await loadPublicVideos();
+  }
+
+  async function renderAdminVideos(){
+    const list = document.getElementById('adminVideoList');
+    const videos = await getVideos();
+    if(videos.length === 0){
+      list.innerHTML = '<p class="empty-msg">Aún no hay videos guardados. Agrega el primero en el formulario.</p>';
+      return;
+    }
+    list.innerHTML = videos.map(v => `
+      <div class="tour-item">
+        <div>
+          <h6>${escapeHtml(v.titulo)}</h6>
+          <p>${escapeHtml(v.descripcion || 'Sin descripción')}</p>
+        </div>
+        <div class="tour-item-actions">
+          <button class="icon-btn" onclick="editVideo('${escapeHtml(v.id)}')">Editar</button>
+          <button class="icon-btn del" onclick="deleteVideo('${escapeHtml(v.id)}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // VIDEOS VISIBLES EN LA PÁGINA PÚBLICA (sección Contenido audiovisual)
+  async function loadPublicVideos(){
+    const grid = document.getElementById('videoGrid');
+    if(!grid) return;
+    const videos = await getVideos();
+    if(videos.length === 0){
+      grid.innerHTML = '<p class="empty-msg">Muy pronto nuevos videos. ¡Vuelve pronto!</p>';
+      return;
+    }
+    grid.innerHTML = videos.map(v => `
+      <div class="video-card">
+        <div class="video-thumb" onclick="openVideo('${escapeHtml(v.youtube_id)}')">
+          <img src="https://img.youtube.com/vi/${escapeHtml(v.youtube_id)}/hqdefault.jpg" alt="${escapeHtml(v.titulo)}">
+          <div class="play-btn"></div>
+        </div>
+        <div class="video-info">
+          <h4>${escapeHtml(v.titulo)}</h4>
+          <p>${escapeHtml(v.descripcion || '')}</p>
+        </div>
+      </div>
+    `).join('');
   }
 </script>
 
