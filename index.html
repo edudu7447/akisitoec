@@ -682,16 +682,23 @@
 
   function extractYoutubeId(input){
     if(!input) return '';
+    const trimmed = input.trim();
     const patterns = [
       /youtube\.com\/watch\?v=([\w-]{11})/,
       /youtu\.be\/([\w-]{11})/,
-      /youtube\.com\/embed\/([\w-]{11})/
+      /youtube\.com\/embed\/([\w-]{11})/,
+      /youtube\.com\/shorts\/([\w-]{11})/,
+      /youtube\.com\/live\/([\w-]{11})/
     ];
     for(const p of patterns){
-      const m = input.match(p);
+      const m = trimmed.match(p);
       if(m) return m[1];
     }
-    return input.trim();
+    if(/^[\w-]{11}$/.test(trimmed)) return trimmed;
+    // Si es una URL con un formato no previsto, busca cualquier tramo de 11
+    // caracteres (el largo fijo de un ID de YouTube) en vez de guardar la URL completa.
+    const fallback = trimmed.match(/([\w-]{11})(?:[?&/]|$)/);
+    return fallback ? fallback[1] : trimmed;
   }
 
   const loginBox = document.getElementById('loginBox');
