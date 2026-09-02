@@ -357,7 +357,7 @@
     <div class="identidad-text">
       <h3>Nuestra identidad de marca</h3>
       <p>Akisito Nomas nace de la pasión por la montaña, el mar y la selva del Ecuador. Nuestro logo une la luna, el felino andino, la ola y las palmeras: cada tour combina altura, fuerza, agua y descanso en una sola experiencia.</p>
-      <p>Somos guías locales certificados, comprometidos con el turismo responsable y la conexión genuina con la naturaleza.</p>
+      <p>Somos guías locales y nacionales certificados, comprometidos con el turismo responsable y la conexión genuina con la naturaleza.</p>
       <div class="chips">
         <span class="chip">Montaña</span>
         <span class="chip">Senderismo</span>
@@ -486,6 +486,9 @@
             <input type="text" id="tourYoutube" placeholder="Ej: https://youtu.be/dQw4w9WgXcQ">
           </div>
           <div class="form-group">
+            <label class="checkbox-item"><input type="checkbox" id="tourVideoVertical"> Es un video vertical (Shorts/Reels)</label>
+          </div>
+          <div class="form-group">
             <label>Incluye</label>
             <div class="checkbox-grid">
               <label class="checkbox-item"><input type="checkbox" class="tourIncluye" value="comida"> Comida</label>
@@ -522,6 +525,9 @@
           <div class="form-group">
             <label>Enlace de YouTube</label>
             <input type="text" id="videoYoutube" placeholder="Ej: https://youtu.be/dQw4w9WgXcQ">
+          </div>
+          <div class="form-group">
+            <label class="checkbox-item"><input type="checkbox" id="videoVertical"> Es un video vertical (Shorts/Reels)</label>
           </div>
           <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="saveVideo()">Guardar video</button>
         </div>
@@ -620,7 +626,7 @@
   const videoModal = document.getElementById('videoModal');
   const videoPlaceholder = document.getElementById('videoPlaceholder');
   const modalBox = document.querySelector('.modal-box');
-  async function openVideo(videoId){
+  async function openVideo(videoId, esVertical){
     modalBox.classList.remove('portrait');
     videoPlaceholder.style.aspectRatio = '16/9';
     if(videoId.startsWith('VIDEO_ID')){
@@ -630,7 +636,14 @@
     }
     videoPlaceholder.innerHTML = '<iframe src="https://www.youtube.com/embed/'+videoId+'?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
     videoModal.classList.add('active');
-    // Detecta si el video es vertical (Shorts) para adaptar el tamaño del reproductor
+    // Si se marcó manualmente como vertical en el panel, se confía en eso
+    // (la API de YouTube a veces reporta tamaño horizontal para Shorts).
+    if(esVertical){
+      videoPlaceholder.style.aspectRatio = '9/16';
+      modalBox.classList.add('portrait');
+      return;
+    }
+    // Si no, se intenta detectar automáticamente con la API pública de YouTube.
     try{
       const oembedUrl = 'https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId) + '&format=json';
       const res = await fetch(oembedUrl);
@@ -761,6 +774,7 @@
     const duracion = document.getElementById('tourDuracion').value.trim();
     const descripcion = document.getElementById('tourDescripcion').value.trim();
     const youtubeId = extractYoutubeId(document.getElementById('tourYoutube').value.trim());
+    const esVertical = document.getElementById('tourVideoVertical').checked;
     const file = document.getElementById('tourImagen').files[0];
     const incluye = Array.from(document.querySelectorAll('.tourIncluye:checked')).map(cb => cb.value);
 
@@ -783,7 +797,7 @@
       imagenUrl = urlData.publicUrl;
     }
 
-    const payload = { nombre, precio, duracion, descripcion, imagen_url: imagenUrl, youtube_id: youtubeId || null, incluye };
+    const payload = { nombre, precio, duracion, descripcion, imagen_url: imagenUrl, youtube_id: youtubeId || null, incluye, es_vertical: esVertical };
     let error;
     if(id){
       ({ error } = await sb.from('tours').update(payload).eq('id', id));
@@ -807,6 +821,7 @@
     document.getElementById('tourDuracion').value = '';
     document.getElementById('tourDescripcion').value = '';
     document.getElementById('tourYoutube').value = '';
+    document.getElementById('tourVideoVertical').checked = false;
     document.getElementById('tourImagen').value = '';
     document.querySelectorAll('.tourIncluye').forEach(cb => cb.checked = false);
     document.getElementById('formTitle').textContent = 'Nuevo tour';
@@ -823,6 +838,7 @@
     document.getElementById('tourDuracion').value = tour.duracion;
     document.getElementById('tourDescripcion').value = tour.descripcion || '';
     document.getElementById('tourYoutube').value = tour.youtube_id || '';
+    document.getElementById('tourVideoVertical').checked = !!tour.es_vertical;
     const incluye = tour.incluye || [];
     document.querySelectorAll('.tourIncluye').forEach(cb => { cb.checked = incluye.includes(cb.value); });
     document.getElementById('formTitle').textContent = 'Editar tour';
@@ -998,7 +1014,7 @@
       const img = t.imagen_url || 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=800&q=80';
       const waText = encodeURIComponent(`Hola, quiero reservar el tour ${t.nombre}`);
       const videoBtn = t.youtube_id
-        ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:10px;" onclick="openVideo('${escapeHtml(t.youtube_id)}')">Ver video</button>`
+        ? `<button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:10px;" onclick="openVideo('${escapeHtml(t.youtube_id)}', ${t.es_vertical ? 'true' : 'false'})">Ver video</button>`
         : '';
       const critterType = getCritterType(t.nombre, t.descripcion);
       const critterHtml = critterType ? createCritterHtml(critterType, t.id) : '';
@@ -1041,13 +1057,14 @@
     const titulo = document.getElementById('videoTitulo').value.trim();
     const descripcion = document.getElementById('videoDescripcion').value.trim();
     const youtubeId = extractYoutubeId(document.getElementById('videoYoutube').value.trim());
+    const esVertical = document.getElementById('videoVertical').checked;
 
     if(!titulo || !youtubeId){
       alert('Por favor completa el título y el enlace de YouTube.');
       return;
     }
 
-    const payload = { titulo, descripcion, youtube_id: youtubeId };
+    const payload = { titulo, descripcion, youtube_id: youtubeId, es_vertical: esVertical };
     let error;
     if(id){
       ({ error } = await sb.from('videos').update(payload).eq('id', id));
@@ -1068,6 +1085,7 @@
     document.getElementById('videoTitulo').value = '';
     document.getElementById('videoDescripcion').value = '';
     document.getElementById('videoYoutube').value = '';
+    document.getElementById('videoVertical').checked = false;
     document.getElementById('videoFormTitle').textContent = 'Nuevo video';
   }
 
@@ -1079,6 +1097,7 @@
     document.getElementById('videoTitulo').value = video.titulo;
     document.getElementById('videoDescripcion').value = video.descripcion || '';
     document.getElementById('videoYoutube').value = video.youtube_id;
+    document.getElementById('videoVertical').checked = !!video.es_vertical;
     document.getElementById('videoFormTitle').textContent = 'Editar video';
     window.scrollTo({top: document.getElementById('panel').offsetTop - 100, behavior:'smooth'});
   }
@@ -1128,9 +1147,9 @@
       const thumbUrl = `https://img.youtube.com/vi/${escapeHtml(v.youtube_id)}/hqdefault.jpg`;
       return `
       <div class="video-card">
-        <div class="video-thumb" onclick="openVideo('${escapeHtml(v.youtube_id)}')">
-          <div class="thumb-bg" style="background-image:url('${thumbUrl}');"></div>
-          <img src="${thumbUrl}" alt="${escapeHtml(v.titulo)}">
+        <div class="video-thumb" onclick="openVideo('${escapeHtml(v.youtube_id)}', ${v.es_vertical ? 'true' : 'false'})">
+          <div class="thumb-bg" id="thumbBg_${escapeHtml(v.id)}" style="background-image:url('${thumbUrl}');"></div>
+          <img id="thumbImg_${escapeHtml(v.id)}" src="${thumbUrl}" alt="${escapeHtml(v.titulo)}">
           <div class="play-btn"></div>
         </div>
         <div class="video-info">
@@ -1140,6 +1159,25 @@
       </div>
     `;
     }).join('');
+    videos.forEach(v => refreshVideoThumb(v.id, v.youtube_id));
+  }
+
+  // Algunos Shorts no tienen miniatura en el formato estándar (hqdefault.jpg).
+  // Se pide la miniatura real a la API pública de YouTube y se reemplaza si es distinta.
+  async function refreshVideoThumb(id, youtubeId){
+    try{
+      const oembedUrl = 'https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + youtubeId) + '&format=json';
+      const res = await fetch(oembedUrl);
+      if(!res.ok) return;
+      const data = await res.json();
+      if(!data.thumbnail_url) return;
+      const img = document.getElementById(`thumbImg_${id}`);
+      const bg = document.getElementById(`thumbBg_${id}`);
+      if(img) img.src = data.thumbnail_url;
+      if(bg) bg.style.backgroundImage = `url('${data.thumbnail_url}')`;
+    }catch(e){
+      // Si falla, se queda con la miniatura adivinada (hqdefault.jpg).
+    }
   }
 </script>
 
