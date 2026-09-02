@@ -298,7 +298,7 @@
   }
   .modal-overlay.active{display:flex;}
   .modal-box{background:#000;width:100%;max-width:800px;max-height:88vh;border-radius:12px;overflow:hidden;position:relative;transition:max-width .3s ease;}
-  .modal-box.portrait{max-width:380px;}
+  .modal-box.portrait{max-width:min(92vw, calc(88vh * 9 / 16));}
   .modal-box iframe,.modal-box .placeholder{width:100%;aspect-ratio:16/9;border:none;display:flex;align-items:center;justify-content:center;color:#fff;background:#1a1a1a;text-align:center;padding:20px;}
   .modal-close{
     position:absolute;top:-40px;right:0;color:#fff;font-size:30px;cursor:pointer;background:none;border:none;
