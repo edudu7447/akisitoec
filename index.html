@@ -299,7 +299,9 @@
   .modal-overlay.active{display:flex;}
   .modal-box{background:#000;width:100%;max-width:800px;max-height:88vh;border-radius:12px;overflow:hidden;position:relative;transition:max-width .3s ease;}
   .modal-box.portrait{max-width:min(92vw, calc(88vh * 9 / 16));}
-  .modal-box iframe,.modal-box .placeholder{width:100%;aspect-ratio:16/9;border:none;display:flex;align-items:center;justify-content:center;color:#fff;background:#1a1a1a;text-align:center;padding:20px;}
+  #videoPlaceholder{width:100%;}
+  .modal-box iframe{width:100%;height:100%;border:none;display:block;}
+  .modal-box .placeholder{width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;background:#1a1a1a;text-align:center;padding:20px;}
   .modal-close{
     position:absolute;top:-40px;right:0;color:#fff;font-size:30px;cursor:pointer;background:none;border:none;
   }
@@ -588,7 +590,7 @@
 <div class="modal-overlay" id="videoModal">
   <div class="modal-box">
     <button class="modal-close" onclick="closeVideo()">&times;</button>
-    <div class="placeholder" id="videoPlaceholder"></div>
+    <div id="videoPlaceholder"></div>
   </div>
 </div>
 
@@ -630,7 +632,7 @@
     modalBox.classList.remove('portrait');
     videoPlaceholder.style.aspectRatio = '16/9';
     if(videoId.startsWith('VIDEO_ID')){
-      videoPlaceholder.innerHTML = '<div><p>Pega aquí el ID real de YouTube en la función openVideo().</p><p style="opacity:.6;margin-top:8px;">Ejemplo: reemplaza "'+videoId+'" por el ID del video real.</p></div>';
+      videoPlaceholder.innerHTML = '<div class="placeholder"><p>Pega aquí el ID real de YouTube en la función openVideo().</p><p style="opacity:.6;margin-top:8px;">Ejemplo: reemplaza "'+videoId+'" por el ID del video real.</p></div>';
       videoModal.classList.add('active');
       return;
     }
